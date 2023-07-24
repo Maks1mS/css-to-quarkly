@@ -2,7 +2,6 @@ import React from "react";
 import { useOverrides } from "@quarkly/components";
 import { Box } from "@quarkly/widgets";
 import isValidIdentifier from 'is-valid-identifier';
-import shrthnd from 'shrthnd';
 import { create } from 'zustand';
 import { parse, walk } from 'css-tree';
 const defaultProps = {
@@ -30,7 +29,8 @@ class Strategy {
 
 class PropsStrategy extends Strategy {
 	beforeParse(str) {
-		return shrthnd(str)?.string ?? str;
+		// return shrthnd(str)?.string ?? str;
+		return str;
 	} // before() {}
 
 
