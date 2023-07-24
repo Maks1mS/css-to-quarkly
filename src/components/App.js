@@ -4,7 +4,7 @@ import { Box } from "@quarkly/widgets";
 import isValidIdentifier from 'is-valid-identifier';
 import shrthnd from 'shrthnd';
 import { create } from 'zustand';
-import cssParse from 'css/lib/parse';
+import { parse, walk } from 'css-tree';
 const defaultProps = {
 	"min-width": "100px",
 	"min-height": "100px"
@@ -116,12 +116,26 @@ const convertCSSToAtomize = (text, outputType = 'props') => {
 	}[outputType];
 	const strategy = new strategyClass();
 	text = strategy.beforeParse(text);
-	const obj = cssParse(text);
-	const stylesheet = obj.stylesheet;
-	const decs = stylesheet.rules[0].declarations;
+	const ast = parse(text, {
+		parseValue: false
+	});
 	strategy.before?.();
-	decs.forEach(dec => strategy.iterate(dec));
-	strategy.after?.();
+	walk(ast, function (node) {
+		if (node.type === 'Declaration') {
+			console.log(node);
+			strategy.iterate({
+				property: node.property,
+				value: node.value.value
+			});
+		}
+	});
+	strategy.after?.(); // const obj = css.parse(text);
+	// const stylesheet = obj.stylesheet;
+	// const decs = stylesheet.rules[0].declarations;
+	// strategy.before?.()
+	// decs.forEach((dec) => strategy.iterate(dec))
+	// strategy.after?.()
+
 	return strategy.result;
 };
 

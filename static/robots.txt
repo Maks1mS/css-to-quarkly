@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://joyful-banoffee-976e92.netlify.app/sitemap-index.xml
+Sitemap: https://css-to-quarkly.netlify.app/sitemap-index.xml
