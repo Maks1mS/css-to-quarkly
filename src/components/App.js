@@ -3,13 +3,13 @@ import { useOverrides } from "@quarkly/components";
 import { Box } from "@quarkly/widgets";
 import isValidIdentifier from 'is-valid-identifier';
 import shrthnd from 'shrthnd';
+import { create } from 'zustand';
+import cssParse from 'css/lib/parse';
 const defaultProps = {
 	"min-width": "100px",
 	"min-height": "100px"
 };
 const overrides = {};
-import { create } from 'zustand';
-import css from "css";
 
 const toCamel = string => string.replace(/([-_][a-z])/gi, $1 => $1.toUpperCase().replace('-', ''));
 
@@ -116,7 +116,7 @@ const convertCSSToAtomize = (text, outputType = 'props') => {
 	}[outputType];
 	const strategy = new strategyClass();
 	text = strategy.beforeParse(text);
-	const obj = css.parse(text);
+	const obj = cssParse(text);
 	const stylesheet = obj.stylesheet;
 	const decs = stylesheet.rules[0].declarations;
 	strategy.before?.();
