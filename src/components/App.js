@@ -4,6 +4,7 @@ import { Box } from "@quarkly/widgets";
 import isValidIdentifier from 'is-valid-identifier';
 import { create } from 'zustand';
 import { parse, walk } from 'css-tree';
+import shrthnd from 'shrthnd';
 const defaultProps = {
 	"min-width": "100px",
 	"min-height": "100px"
@@ -12,7 +13,77 @@ const overrides = {};
 
 const toCamel = string => string.replace(/([-_][a-z])/gi, $1 => $1.toUpperCase().replace('-', ''));
 
-class Strategy {
+class PrepareForAtomize {
+	constructor() {
+		this.short = {
+			padding: {
+				'padding-top': '0px',
+				'padding-bottom': '0px',
+				'padding-left': '0px',
+				'padding-right': '0px'
+			},
+			margin: {
+				'margin-top': '0px',
+				'margin-bottom': '0px',
+				'margin-left': '0px',
+				'margin-right': '0px'
+			}
+		};
+		this.out = [];
+		this.toShorthand = new Set();
+	}
+
+	iterate({
+		property,
+		value
+	}) {
+		let short = undefined;
+
+		if (property.startsWith('padding-')) {
+			short = 'padding';
+		}
+
+		if (property.startsWith('margin-')) {
+			short = 'margin';
+		}
+
+		if (property === 'font') {
+			value = value.replaceAll('"', "'");
+		}
+
+		if (property === 'display') {
+			if (value.startsWith('-ms-') || value.startsWith('-webkit-')) {
+				return;
+			}
+		}
+
+		if (short) {
+			this.toShorthand.add(short);
+			this.short.padding[property] = value;
+		} else {
+			this.out.push({
+				property,
+				value
+			});
+		}
+	}
+
+	after() {
+		[...this.toShorthand].forEach(property => {
+			const el = document.createElement("div");
+			el.style.cssText = Object.entries(this.short[property]).map(x => x.join(':')).join(';');
+			console.log(el.style.padding);
+			this.out.push({
+				property,
+				value: el.style[property]
+			});
+		});
+	}
+
+} // OUTPUT STRATEGY
+
+
+class OutputStrategy {
 	constructor(result = '') {
 		this.result = result;
 
@@ -27,7 +98,7 @@ class Strategy {
 
 }
 
-class PropsStrategy extends Strategy {
+class PropsStrategy extends OutputStrategy {
 	beforeParse(str) {
 		// return shrthnd(str)?.string ?? str;
 		return str;
@@ -53,7 +124,7 @@ class PropsStrategy extends Strategy {
 
 }
 
-class OverridesStrategy extends Strategy {
+class OverridesStrategy extends OutputStrategy {
 	before() {
 		this.result += '{\n';
 	}
@@ -86,7 +157,7 @@ class OverridesStrategy extends Strategy {
 
 }
 
-class ReactStylesStrategy extends Strategy {
+class ReactStylesStrategy extends OutputStrategy {
 	before() {
 		this.result += '{\n';
 	}
@@ -109,33 +180,31 @@ class ReactStylesStrategy extends Strategy {
 }
 
 const convertCSSToAtomize = (text, outputType = 'props') => {
-	const strategyClass = {
-		'props': PropsStrategy,
-		'overrides': OverridesStrategy,
-		'react-styles': ReactStylesStrategy
-	}[outputType];
-	const strategy = new strategyClass();
-	text = strategy.beforeParse(text);
-	const ast = parse(text, {
+	text = shrthnd(text).string;
+	let ast = parse(text, {
 		parseValue: false
 	});
-	strategy.before?.();
+	const p = new PrepareForAtomize();
+	text = '';
 	walk(ast, function (node) {
 		if (node.type === 'Declaration') {
-			console.log(node);
-			strategy.iterate({
+			p.iterate({
 				property: node.property,
 				value: node.value.value
 			});
 		}
 	});
-	strategy.after?.(); // const obj = css.parse(text);
-	// const stylesheet = obj.stylesheet;
-	// const decs = stylesheet.rules[0].declarations;
-	// strategy.before?.()
-	// decs.forEach((dec) => strategy.iterate(dec))
-	// strategy.after?.()
-
+	p.after();
+	const OutputStrategyClass = {
+		'props': PropsStrategy,
+		'overrides': OverridesStrategy,
+		'react-styles': ReactStylesStrategy
+	}[outputType];
+	const strategy = new OutputStrategyClass();
+	text = strategy.beforeParse(text);
+	strategy.before?.();
+	p.out.forEach(x => strategy.iterate(x));
+	strategy.after?.();
 	return strategy.result;
 };
 
